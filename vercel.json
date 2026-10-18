@@ -1,5 +1,6 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": "container",
   "daemons": {
     "email-worker": {
       "root": ".",
