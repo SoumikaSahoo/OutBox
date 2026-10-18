@@ -5,6 +5,10 @@ node_modules
 .vercel
 .env
 **/.env
+.env*
+!.env.example
+.agents
+skills-lock.json
 .git
 *.log
 *.tsbuildinfo

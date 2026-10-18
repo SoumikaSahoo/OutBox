@@ -32,9 +32,9 @@ const worker=new Worker<Payload>('email-send',async(job:Job<Payload>,token?:stri
     if(!process.env.ETHEREAL_USER||!process.env.ETHEREAL_PASSWORD)throw new Error('Configure ETHEREAL_USER and ETHEREAL_PASSWORD before sending.');
     const info=await transporter.sendMail({from:sender,to:email.recipient,subject:email.subject,text:email.body});
     const sentAt=new Date();await prisma.email.update({where:{id:emailId},data:{status:'SENT',sentAt,error:null}});
-    try{await search.index({index:'emails',id:email.id,document:{id:email.id,userId,recipient:email.recipient,sender,subject:email.subject,body:email.body,status:'SENT',sentAt:sentAt.toISOString()}});}catch(e){console.error('Email sent but search indexing failed',e);}
+    if(search)try{await search.index({index:'emails',id:email.id,document:{id:email.id,userId,recipient:email.recipient,sender,subject:email.subject,body:email.body,status:'SENT',sentAt:sentAt.toISOString()}});}catch(e){console.error('Email sent but search indexing failed',e);}
     console.log(`Sent ${emailId}; preview: ${nodemailer.getTestMessageUrl(info as any)??'(Ethereal preview unavailable)'}`);
-  }catch(error){const message=error instanceof Error?error.message:'Email send failed';await prisma.email.update({where:{id:emailId},data:{status:'FAILED',error:message}});try{await search.index({index:'emails',id:email.id,document:{id:email.id,userId,recipient:email.recipient,sender,subject:email.subject,body:email.body,status:'FAILED',error:message}});}catch{}throw error;}
+  }catch(error){const message=error instanceof Error?error.message:'Email send failed';await prisma.email.update({where:{id:emailId},data:{status:'FAILED',error:message}});if(search)try{await search.index({index:'emails',id:email.id,document:{id:email.id,userId,recipient:email.recipient,sender,subject:email.subject,body:email.body,status:'FAILED',error:message}});}catch{}throw error;}
 },{connection:redis,concurrency:config.concurrency});
 worker.on('completed',job=>console.log(`Completed ${job.id}`));worker.on('failed',(job,error)=>console.error(`Job ${job?.id} failed`,error));
 console.log(`Email worker ready; concurrency=${config.concurrency}, minimum send gap=${config.delayMs}ms`);

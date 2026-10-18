@@ -20,4 +20,4 @@ ENV NODE_ENV=production
 EXPOSE 4000
 
 # The web service syncs the Prisma schema before accepting traffic.
-CMD ["sh", "-c", "npm --workspace backend run db:push && npm --workspace backend run start:api"]
+CMD ["npm", "--workspace", "backend", "run", "start:api"]

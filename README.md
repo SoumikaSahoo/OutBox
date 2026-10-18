@@ -31,16 +31,15 @@ For separate processes, use `npm run dev:api`, `npm run dev:worker`, and `npm ru
 
 ## Deploy to Vercel
 
-This project uses a Vercel container for the combined React dashboard and Express API, plus a Vercel Daemon for the persistent BullMQ worker. Daemons are currently in public beta. PostgreSQL, Redis, and Elasticsearch remain managed data services: connect PostgreSQL and Redis from the Vercel Marketplace, and provide an Elasticsearch endpoint and API key from a hosted Elasticsearch provider. This keeps the whole application and worker on Vercel while using managed databases for durable state.
+This project uses a Vercel container for the combined React dashboard and Express API, plus a Vercel Daemon for the persistent BullMQ worker. Daemons are currently in public beta. Connect PostgreSQL and Redis from the Vercel Marketplace. Elasticsearch is optional: when it is not configured, email search uses PostgreSQL instead.
 
 ### Deploy
 
 1. Sign in to Vercel and create a project from a private repository containing only this project, or deploy this folder directly with the Vercel CLI. This folder is nested in a larger workspace, so do not connect or publish its parent repository.
 2. In the Vercel project, connect PostgreSQL and Redis Marketplace integrations. Add `DATABASE_URL` and `REDIS_URL` in Production using the connection strings provided by those integrations.
-3. Create a hosted Elasticsearch deployment and add `ELASTICSEARCH_URL` plus either `ELASTICSEARCH_API_KEY` or `ELASTICSEARCH_USERNAME` and `ELASTICSEARCH_PASSWORD` in Vercel Production variables.
-4. Add `NODE_ENV=production`, a random `SESSION_SECRET` of at least 32 characters, and the SMTP credentials `ETHEREAL_USER` and `ETHEREAL_PASSWORD`. Add `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`; Slack credentials are optional.
-5. Deploy from this folder. `Dockerfile.vercel` packages the web UI and API as one Vercel container function. `vercel.json` starts one `email-worker` Daemon in `iad1` using the existing Dockerfile and the BullMQ worker command. Set project deployment protection to public if you want anyone to use the application.
-6. Once Vercel assigns the production domain, register `https://YOUR-DOMAIN/auth/google/callback` as the Google OAuth redirect. Register `https://YOUR-DOMAIN/auth/slack/callback` in Slack if Slack alerts are enabled. Vercel's production domain is detected automatically; set `PUBLIC_APP_URL` only if you use a custom domain that differs from it.
+3. Add `NODE_ENV=production` and a random `SESSION_SECRET` of at least 32 characters in Vercel Production variables. Add `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` for Google sign-in, and `ETHEREAL_USER` and `ETHEREAL_PASSWORD` for test email delivery. Slack credentials are optional.
+4. Deploy from this folder. `Dockerfile.vercel` packages the web UI and API as one Vercel container function. `vercel.json` starts one `email-worker` Daemon in `iad1` using the existing Dockerfile and the BullMQ worker command. Set project deployment protection to public if you want anyone to use the application.
+5. Once Vercel assigns the production domain, register `https://YOUR-DOMAIN/auth/google/callback` as the Google OAuth redirect. Register `https://YOUR-DOMAIN/auth/slack/callback` in Slack if Slack alerts are enabled. Vercel's production domain is detected automatically; set `PUBLIC_APP_URL` only if you use a custom domain that differs from it.
 
 `LOCAL_DEMO_AUTH` is disabled automatically in production. Do not upload `.env`; it contains local service URLs and test credentials. Vercel Daemons and Vercel's backend/container features are beta and may require account-level access. Marketplace database and Elasticsearch costs depend on the providers and plans selected. Review [Vercel Hobby limits](https://vercel.com/docs/plans/hobby), [Vercel Daemons](https://vercel.com/daemons), and [Vercel Marketplace storage](https://vercel.com/docs/storage) before provisioning resources.
 
@@ -50,7 +49,7 @@ This project uses a Vercel container for the combined React dashboard and Expres
 | --- | --- | --- |
 | `DATABASE_URL` | PostgreSQL connection string | local compose database |
 | `REDIS_URL` | Redis connection string | `redis://localhost:6379` |
-| `ELASTICSEARCH_URL` | Elasticsearch node | `http://localhost:9200` |
+| `ELASTICSEARCH_URL` | Optional search index; PostgreSQL search is used if unset | local compose URL |
 | `ELASTICSEARCH_API_KEY` | Hosted Elasticsearch API key (alternative to username/password) | optional |
 | `ELASTICSEARCH_USERNAME`, `ELASTICSEARCH_PASSWORD` | Hosted Elasticsearch basic authentication | optional |
 | `PORT` | API port | `4000` |
@@ -107,5 +106,5 @@ SMTP cannot offer true exactly-once delivery: if a provider accepts a message an
 - The assignment did not include an accessible Figma URL, so the dashboard uses a clean email operations layout rather than claiming pixel-level Figma matching.
 - This starter has one configured SMTP account; the sender field controls sender identity and per-sender throttling. Add verified Ethereal credentials or provider credential mapping before supporting real independent sender accounts.
 - Authentication is a signed, HTTP-only cookie session. The sample is intended for a local demo; production deployment should use HTTPS, a managed secret store, CSRF protections, and token encryption at rest.
-- PostgreSQL and Redis are durable dependencies. Elasticsearch search is temporarily unavailable until its service is running and indexed data exists.
+- Email search uses PostgreSQL by default and can use Elasticsearch when configured.
 - GitHub repository creation, private access grants, and a demo recording require the user's GitHub account and recording environment; this folder is ready to commit, but those external actions are not performed here.

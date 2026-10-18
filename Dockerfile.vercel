@@ -19,4 +19,4 @@ RUN npx prisma generate --schema backend/prisma/schema.prisma \
 ENV NODE_ENV=production
 EXPOSE 80
 
-CMD ["sh", "-c", "npm --workspace backend run db:push && npm --workspace backend run start:api"]
+CMD ["npm", "--workspace", "backend", "run", "start:api"]

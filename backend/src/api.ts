@@ -105,7 +105,7 @@ app.post('/api/emails/schedule', requireUser, async (req, res) => {
       const scheduledAt = new Date(new Date(input.startAt).getTime() + i * input.delayMs);
       const email = await prisma.email.create({ data: { userId: user.id, sender: input.sender, recipient: input.recipients[i]!, subject: input.subject, body: input.body, scheduledAt } });
       await emailQueue.add('send', { emailId: email.id, userId: user.id, sender: input.sender, hourlyLimit: input.hourlyLimit }, { jobId: email.id, delay: Math.max(0, scheduledAt.getTime() - Date.now()), attempts: 5, backoff: { type: 'exponential', delay: 5000 }, removeOnComplete: false, removeOnFail: false });
-      await search.index({ index: 'emails', id: email.id, document: { id: email.id, userId: user.id, sender: input.sender, recipient: email.recipient, subject: input.subject, body: input.body, status: 'SCHEDULED', scheduledAt }, refresh: false }).catch(error => console.error('Email indexing failed', error));
+      if (search) await search.index({ index: 'emails', id: email.id, document: { id: email.id, userId: user.id, sender: input.sender, recipient: email.recipient, subject: input.subject, body: input.body, status: 'SCHEDULED', scheduledAt }, refresh: false }).catch(error => console.error('Email indexing failed', error));
       jobs.push(email.id);
     }
     res.status(202).json({ scheduled: jobs.length, ids: jobs });
@@ -114,6 +114,17 @@ app.post('/api/emails/schedule', requireUser, async (req, res) => {
 app.get('/api/search', requireUser, async (req, res) => {
   const q = String(req.query.q ?? '').trim(); if (!q) return res.json({ hits: [] });
   try {
+      if (!search) {
+        const hits = await prisma.email.findMany({
+          where: { userId: res.locals.user.id, OR: [
+            { recipient: { contains: q, mode: 'insensitive' } },
+            { subject: { contains: q, mode: 'insensitive' } },
+            { body: { contains: q, mode: 'insensitive' } },
+          ] },
+          orderBy: { scheduledAt: 'desc' }, take: 100,
+        });
+        return res.json({ hits });
+      }
     if (!(await search.indices.exists({ index: 'emails' }))) return res.json({ hits: [] });
     const result = await search.search({ index: 'emails', query: { bool: { must: [{ multi_match: { query: q, fields: ['recipient', 'subject', 'body'] } }], filter: [{ term: { userId: res.locals.user.id } }] } }, size: 100 });
     res.json({ hits: result.hits.hits.map(hit => hit._source) });
@@ -135,14 +146,14 @@ app.get('/health', async (_req, res) => {
   const [database, cache, searchService] = await Promise.allSettled([
     withTimeout(prisma.$queryRaw`SELECT 1`, 2000),
     withTimeout(redis.ping(), 2000),
-    withTimeout(search.ping(), 2000),
+    search ? withTimeout(search.ping(), 2000) : Promise.resolve('optional'),
   ]);
   const services = {
     postgres: database.status === 'fulfilled' ? 'ok' : 'unavailable',
     redis: cache.status === 'fulfilled' ? 'ok' : 'unavailable',
-    elasticsearch: searchService.status === 'fulfilled' ? 'ok' : 'unavailable',
+    elasticsearch: !search ? 'postgres fallback' : searchService.status === 'fulfilled' ? 'ok' : 'unavailable',
   };
-  const ok = Object.values(services).every(service => service === 'ok');
+  const ok = database.status === 'fulfilled' && cache.status === 'fulfilled' && (!search || searchService.status === 'fulfilled');
   res.status(ok ? 200 : 503).json({ ok, services });
 });
 const frontendBuild = resolve(dirname(fileURLToPath(import.meta.url)), '../../frontend/dist');
