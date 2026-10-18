@@ -1,0 +1,7 @@
+{
+  "name": "reachinbox-email-scheduler",
+  "private": true,
+  "workspaces": ["backend", "frontend"],
+  "scripts": {"dev": "concurrently -k -n api,worker,web -c blue,green,magenta \"npm:dev:api\" \"npm:dev:worker\" \"npm:dev:web\"", "dev:api": "npm --workspace backend run dev:api", "dev:worker": "npm --workspace backend run dev:worker", "dev:web": "npm --workspace frontend run dev", "build": "npm --workspace backend run build && npm --workspace frontend run build"},
+  "devDependencies": {"concurrently":"^9.1.2","typescript":"^5.7.3"}
+}

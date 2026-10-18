@@ -1,0 +1,13 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "daemons": {
+    "email-worker": {
+      "root": ".",
+      "entrypoint": "Dockerfile",
+      "command": ["npm", "--workspace", "backend", "run", "start:worker"],
+      "instances": {
+        "iad1": 1
+      }
+    }
+  }
+}
